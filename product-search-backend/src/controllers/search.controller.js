@@ -1,52 +1,30 @@
-const { getAllProducts } = require('../data/productStore');
+const Product = require('../models/Product');
 const { rankProducts } = require('../services/ranking.service');
-const {
-  normalizeQuery,
-  extractPrice,
-  extractColor
-} = require('../services/queryParser.service');
+const { enhanceQuery } = require('../services/llm.service');
 
-function searchProducts(req, res) {
+async function searchProducts(req, res) {
   const rawQuery = req.query.query;
   if (!rawQuery) {
     return res.status(400).json({ message: 'Query required' });
   }
 
-  const query = normalizeQuery(rawQuery);
+  const query = await enhanceQuery(rawQuery);
   const keywords = query.split(' ');
 
-  const maxPrice = extractPrice(query);
-  const color = extractColor(query);
+  let products = await Product.find();
 
-  let products = getAllProducts();
-
-  // ✅ KEYWORD-BASED MATCHING
-  products = products.filter(product => {
-    const searchableText = `
-      ${product.title}
-      ${product.description || ''}
-      ${Object.values(product.metadata).join(' ')}
+  products = products.filter(p => {
+    const text = `
+      ${p.title}
+      ${p.description}
+      ${Object.values(p.metadata || {}).join(' ')}
     `.toLowerCase();
 
-    return keywords.some(word => searchableText.includes(word));
+    return keywords.some(k => text.includes(k));
   });
 
-  // ✅ PRICE FILTER
-  if (maxPrice) {
-    products = products.filter(p => p.price <= maxPrice);
-  }
-
-  // ✅ COLOR FILTER
-  if (color) {
-    products = products.filter(
-      p => p.metadata.color?.toLowerCase() === color
-    );
-  }
-
-  // ✅ RANKING
-  const rankedProducts = rankProducts(products, query);
-
-  res.json({ data: rankedProducts });
+  const ranked = rankProducts(products, query);
+  res.json({ data: ranked });
 }
 
 module.exports = { searchProducts };

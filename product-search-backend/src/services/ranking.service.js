@@ -1,32 +1,16 @@
 function rankProducts(products, query) {
-    const isCheapIntent =
-      query.includes('sasta') || query.includes('cheap');
+    const cheapIntent = query.includes('sasta') || query.includes('cheap');
   
     return products
-      .map(product => {
+      .map(p => {
         let score = 0;
   
-        // Text relevance
-        if (product.title.toLowerCase().includes('iphone')) {
-          score += 0.4;
-        }
+        if (p.title.toLowerCase().includes('iphone')) score += 0.4;
+        if (p.rating) score += (p.rating / 5) * 0.2;
+        if (cheapIntent) score += (1 - p.price / 100000) * 0.2;
+        if (p.stock > 0) score += 0.2;
   
-        // Rating
-        if (product.rating) {
-          score += (product.rating / 5) * 0.2;
-        }
-  
-        // Cheap intent boost
-        if (isCheapIntent) {
-          score += (1 - product.price / 100000) * 0.2;
-        }
-  
-        // Stock boost
-        if (product.stock > 0) {
-          score += 0.2;
-        }
-  
-        return { ...product, score };
+        return { ...p._doc, score };
       })
       .sort((a, b) => b.score - a.score);
   }
